@@ -1,0 +1,208 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Money Tracker</title>
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <h1>Money</h1>
+      <div class="balance">
+        <span class="label">Balance</span>
+        <span id="balance" class="value">0</span>
+      </div>
+    </div>
+    <div class="actions">
+      <button id="btn-upload" class="primary">Upload bank report</button>
+      <button id="btn-add">+ Add</button>
+      <button id="btn-export">Export Excel</button>
+      <details class="menu">
+        <summary aria-label="More">⋯</summary>
+        <div class="menu-items">
+          <button id="btn-import-sheet">Import my old spreadsheet</button>
+          <button id="btn-balance">Set actual balance…</button>
+          <button id="btn-rules">Category rules…</button>
+          <button id="btn-backup">Download backup</button>
+          <button id="btn-restore">Restore backup…</button>
+          <button id="btn-clear" class="danger">Delete all data</button>
+        </div>
+      </details>
+    </div>
+    <input type="file" id="file-bank" accept=".csv,.txt,.xls,.xlsx,.ods,.pdf" hidden>
+    <input type="file" id="file-sheet" accept=".xlsx,.xls,.ods" hidden>
+    <input type="file" id="file-backup" accept=".json" hidden>
+  </header>
+
+  <main>
+    <section id="empty" class="empty" hidden>
+      <h2>Start tracking</h2>
+      <p>Upload a bank report (CSV, Excel or PDF) and every in and out goes into your monthly sheet, already categorised.</p>
+      <p>Already tracking in a spreadsheet? Import it first so the app learns your categories and continues your balance.</p>
+      <div class="empty-actions">
+        <button class="primary" data-click="btn-upload">Upload bank report</button>
+        <button data-click="btn-import-sheet">Import my old spreadsheet</button>
+      </div>
+      <p class="muted small">Everything stays in this browser. Nothing is uploaded anywhere.</p>
+    </section>
+
+    <section id="month-view" hidden>
+      <nav id="month-tabs" class="tabs" aria-label="Months"></nav>
+
+      <div class="summary">
+        <div class="card"><span class="label">Start of month</span><span id="sum-start" class="value"></span></div>
+        <div class="card"><span class="label">In</span><span id="sum-in" class="value pos"></span></div>
+        <div class="card"><span class="label">Out</span><span id="sum-out" class="value neg"></span></div>
+        <div class="card"><span class="label">End of month</span><span id="sum-end" class="value"></span></div>
+      </div>
+
+      <details class="breakdown" id="breakdown-wrap" open>
+        <summary>Spending by type</summary>
+        <div id="breakdown"></div>
+      </details>
+
+      <div class="toolbar">
+        <input type="search" id="search" placeholder="Search this month…">
+        <label class="check"><input type="checkbox" id="only-uncat"> Only uncategorised</label>
+        <span id="uncat-count" class="muted small"></span>
+      </div>
+
+      <div class="table-wrap">
+        <table class="sheet" id="sheet">
+          <thead>
+            <tr>
+              <th>Date</th><th>Description</th><th>Type</th><th>Tag</th>
+              <th class="num">Amount</th><th class="num">Inflow</th><th class="num">Remaining</th>
+              <th class="num">Total Day</th><th>Notes</th><th></th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <!-- Bank import -->
+  <dialog id="import-dialog" class="wide">
+    <form method="dialog" class="dialog-body" id="import-form">
+      <header class="dialog-head">
+        <h2>Import <span id="import-file"></span></h2>
+        <button type="button" class="icon" aria-label="Close" data-close>✕</button>
+      </header>
+      <details id="mapping" class="mapping">
+        <summary>Columns <span id="mapping-summary" class="muted small"></span></summary>
+        <div class="mapping-grid" id="mapping-grid"></div>
+      </details>
+      <p id="import-msg" class="msg"></p>
+      <div class="table-wrap preview">
+        <table class="sheet" id="preview">
+          <thead>
+            <tr>
+              <th><input type="checkbox" id="preview-all" checked aria-label="Select all"></th>
+              <th>Date</th><th>Description</th><th>Type</th><th>Tag</th>
+              <th class="num">Amount</th><th class="num">Inflow</th><th>From the bank</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <label class="check" id="match-balance-wrap" hidden>
+        <input type="checkbox" id="match-balance" checked>
+        <span id="match-balance-label"></span>
+      </label>
+      <footer class="dialog-foot">
+        <span class="muted small">Changing a type here teaches the app for next time.</span>
+        <button type="button" data-close>Cancel</button>
+        <button id="import-go" class="primary" value="default">Add</button>
+      </footer>
+    </form>
+  </dialog>
+
+  <!-- Add / edit transaction -->
+  <dialog id="tx-dialog">
+    <form method="dialog" class="dialog-body" id="tx-form">
+      <header class="dialog-head">
+        <h2 id="tx-title">Add transaction</h2>
+        <button type="button" class="icon" aria-label="Close" data-close>✕</button>
+      </header>
+      <div class="form-grid">
+        <label>Date <input type="date" name="date" required></label>
+        <label>Description <input name="description" required autocomplete="off" list="desc-list"></label>
+        <label>Type <input name="type" list="type-list" autocomplete="off"></label>
+        <label>Tag <input name="tag" list="tag-list" autocomplete="off"></label>
+        <label>Amount (out) <input name="amount" inputmode="decimal" autocomplete="off"></label>
+        <label>Inflow (in) <input name="inflow" inputmode="decimal" autocomplete="off"></label>
+        <label class="span2">Notes <input name="notes" autocomplete="off"></label>
+        <p class="span2 muted small" id="tx-bank"></p>
+      </div>
+      <footer class="dialog-foot">
+        <button type="button" id="tx-delete" class="danger" hidden>Delete</button>
+        <span class="spacer"></span>
+        <button type="button" data-close>Cancel</button>
+        <button class="primary" value="default">Save</button>
+      </footer>
+    </form>
+  </dialog>
+
+  <!-- Set balance -->
+  <dialog id="balance-dialog">
+    <form method="dialog" class="dialog-body" id="balance-form">
+      <header class="dialog-head">
+        <h2>Set actual balance</h2>
+        <button type="button" class="icon" aria-label="Close" data-close>✕</button>
+      </header>
+      <p class="muted small">Enter what your bank shows at the end of a day. The difference is added as a "Missing Balance" row, just like in your sheet.</p>
+      <div class="form-grid">
+        <label>Date <input type="date" name="date" required></label>
+        <label>Balance <input name="balance" inputmode="decimal" required autocomplete="off"></label>
+      </div>
+      <footer class="dialog-foot">
+        <span class="spacer"></span>
+        <button type="button" data-close>Cancel</button>
+        <button class="primary" value="default">Save</button>
+      </footer>
+    </form>
+  </dialog>
+
+  <!-- Rules -->
+  <dialog id="rules-dialog" class="wide">
+    <form method="dialog" class="dialog-body">
+      <header class="dialog-head">
+        <h2>Category rules</h2>
+        <button type="button" class="icon" aria-label="Close" data-close>✕</button>
+      </header>
+      <p class="muted small">When a bank description contains the keyword, the row gets this description, type and tag. Your rules win over learned and built-in ones; longer keywords win over shorter ones.</p>
+      <div class="toolbar">
+        <input type="search" id="rules-search" placeholder="Search rules…">
+        <label class="check"><input type="checkbox" id="rules-defaults"> Use built-in merchant list</label>
+        <button type="button" id="rule-add">+ Rule</button>
+      </div>
+      <div class="table-wrap preview">
+        <table class="sheet" id="rules-table">
+          <thead><tr><th>Keyword</th><th>Description</th><th>Type</th><th>Tag</th><th>Source</th><th></th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <footer class="dialog-foot">
+        <button type="button" id="rules-apply">Re-categorise uncategorised rows</button>
+        <span class="spacer"></span>
+        <button value="cancel" class="primary">Done</button>
+      </footer>
+    </form>
+  </dialog>
+
+  <datalist id="type-list"></datalist>
+  <datalist id="tag-list"></datalist>
+  <datalist id="desc-list"></datalist>
+
+  <div id="toast" class="toast" role="status" hidden></div>
+
+  <script src="vendor/xlsx.full.min.js"></script>
+  <script src="js/parse.js"></script>
+  <script src="js/categorize.js"></script>
+  <script src="js/ledger.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

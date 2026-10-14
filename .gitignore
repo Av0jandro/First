@@ -1,0 +1,8 @@
+node_modules/
+.DS_Store
+# Personal finance files: keep them out of the repository
+*.xlsx
+*.xls
+*.csv
+*.pdf
+*backup*.json

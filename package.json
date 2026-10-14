@@ -1,0 +1,11 @@
+{
+  "name": "money-tracker",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Expense tracker that fills in your monthly money sheet from a bank report",
+  "scripts": {
+    "test": "node --test tests/*.test.js",
+    "start": "python3 -m http.server 8000"
+  },
+  "license": "MIT"
+}
